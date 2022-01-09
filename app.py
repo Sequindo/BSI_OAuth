@@ -76,7 +76,10 @@ def getInfo():
 
   user_info = user_info_service.userinfo().get().execute()
   flask.session['userinfo'] = user_info
-  return flask.redirect('/')
+  # Save credentials back to session in case access token was refreshed - TODO: in a persistent database instead.
+  flask.session['credentials'] = credentials_to_dict(credentials)
+
+  return flask.jsonify(**user_info)
 
 
 @app.route('/revoke')
@@ -94,18 +97,16 @@ def revoke():
 
   status_code = getattr(revoke, 'status_code')
   if status_code == 200:
-    return('Credentials successfully revoked.' + redirect('/'))
+    return('Credentials successfully revoked.')
   else:
-    return('An error occurred.' + redirect('/'))
+    return('An error occurred.')
 
 
 @app.route('/clear')
 def clear_credentials():
   if 'credentials' in flask.session:
     del flask.session['credentials']
-  return ('Credentials have been cleared.<br><br>' +
-          redirect('/'))
-
+  return ('Credentials have been cleared.<br><br>')
 
 def credentials_to_dict(credentials):
   return {'token': credentials.token,

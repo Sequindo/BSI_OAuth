@@ -13,7 +13,7 @@ from werkzeug.utils import redirect
 CLIENT_SECRETS_FILE = "client_secret.json"
 
 # using incremental authorization
-SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
+SCOPES = ['openid profile email']
 
 app = flask.Flask(__name__)
 # Based on https://flask.palletsprojects.com/quickstart/#sessions.
@@ -21,11 +21,10 @@ app.secret_key = 'cc1ea1e24cfe1913c32d9d17252ec97f263024fa13f16065d6eea1cad3215f
 
 @app.route('/')
 def index():
-  userInfo = dict(flask.session).get('userinfo', None)
-  if(userInfo==None):
+  email = dict(flask.session).get('email', None)
+  if(email==None):
     return f'Hello, None!'
   else:
-    email = userInfo.get['email']
     return f'Hello, {email}!'
 
 @app.route('/login')
@@ -72,14 +71,14 @@ def getInfo():
       **flask.session['credentials'])
 
   user_info_service = googleapiclient.discovery.build(
-      serviceName='oauth2', version='v2', credentials=credentials)
+      serviceName='people', version='v1', credentials=credentials)
 
-  user_info = user_info_service.userinfo().get().execute()
-  flask.session['userinfo'] = user_info
+  user_info = user_info_service.people().get(resourceName='people/me', personFields='emailAddresses').execute()
+  flask.session['email'] = user_info.get('emailAddresses')[0].get('value')
   # Save credentials back to session in case access token was refreshed - TODO: in a persistent database instead.
   flask.session['credentials'] = credentials_to_dict(credentials)
 
-  return flask.jsonify(**user_info)
+  return flask.redirect('/')
 
 
 @app.route('/revoke')
@@ -97,6 +96,8 @@ def revoke():
 
   status_code = getattr(revoke, 'status_code')
   if status_code == 200:
+    del flask.session['credentials']
+    del flask.session['email']
     return('Credentials successfully revoked.')
   else:
     return('An error occurred.')
